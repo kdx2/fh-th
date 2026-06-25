@@ -1,0 +1,9 @@
+dist/
+node_modules/
+coverage/
+package-lock.json
+
+# Provided/authored docs and assets — keep as-is.
+assets/
+requirements.md
+stack-analysis.md
