@@ -18,6 +18,7 @@ Response:
 
 - Node.js ≥ 20
 - npm
+- Docker (optional, for the container build)
 
 ## Getting started
 
