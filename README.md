@@ -46,7 +46,15 @@ The request must be a `multipart/form-data` POST with a single file part named
 Preferably, rely on the client to automatically **generate the header** - `Content-Type: multipart/form-data` - and **boundary**
 as its manual calculation or lack of boundary may lead to an error like 400.
 
-#### Using curl
+As pointed in the take-home task description the `mediainfo` command can be used to check results.
+
+To get the count of frames in our sampe.mp3 file assuming an existing CLI version of the command:<br>
+`mediainfo --Inform="Audio;%FrameCount%" assets/sample.mp3`
+
+To get a complete view over the properties of the sample.mp3 file:<br>
+`mediainfo assets/sample.mp3`
+
+#### Test using curl
 
 `-F` makes curl set `Content-Type: multipart/form-data` (with boundary) and
 `Content-Length` for you:
