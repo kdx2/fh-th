@@ -31,6 +31,13 @@ const ID3_FLAGS_OFFSET = 5;
 const ID3_FOOTER_FLAG = 0x10;
 const ID3_FOOTER_BYTES = 10;
 
+// ── VBR header (Xing/Info) carried inside the first frame ────────────────────
+const XING_TAG = Buffer.from('Xing'); // written by VBR encoders
+const INFO_TAG = Buffer.from('Info'); // written by CBR encoders
+const CHANNEL_MODE_MONO = 0b11; // header byte 3, bits 7-6
+const SIDE_INFO_BYTES_MONO = 17;
+const SIDE_INFO_BYTES_OTHER = 32;
+
 // ── Frame-length maths ──────────────────────────────────────────────────────
 const FRAME_LENGTH_COEFFICIENT = 144; // 1152 samples/frame ÷ 8 bits/byte
 const BITS_PER_KBPS = 1000;
@@ -129,6 +136,25 @@ export function extractId3v2TagLength(data: Buffer, offset = 0): number {
   const isFooterPresent = (data[offset + ID3_FLAGS_OFFSET]! & ID3_FOOTER_FLAG) !== 0;
 
   return ID3V2_HEADER_BYTES + size + (isFooterPresent ? ID3_FOOTER_BYTES : 0);
+}
+
+/**
+ * True if the frame at `offset` is a Xing/Info VBR-header frame — a real MPEG
+ * frame that carries VBR metadata (frame/byte counts, TOC) instead of audio. The
+ * tag sits immediately after the side information, whose size depends on the
+ * channel mode. `mediainfo` excludes this frame from its count, so we do too.
+ */
+export function isXingFrame(data: Buffer, offset: number): boolean {
+  if (offset + MPEG_FRAME_HEADER_BYTES > data.length) return false;
+
+  const channelMode = (data[offset + 3]! >> 6) & 0b11;
+  const sideInfoBytes =
+    channelMode === CHANNEL_MODE_MONO ? SIDE_INFO_BYTES_MONO : SIDE_INFO_BYTES_OTHER;
+  const tagStart = offset + MPEG_FRAME_HEADER_BYTES + sideInfoBytes;
+  if (tagStart + XING_TAG.length > data.length) return false;
+
+  const tag = data.subarray(tagStart, tagStart + XING_TAG.length);
+  return tag.equals(XING_TAG) || tag.equals(INFO_TAG);
 }
 
 /** True iff the frame is MPEG-1 Layer III (the only format we support). */

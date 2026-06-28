@@ -221,3 +221,9 @@ curl -F "file=@assets/sample.mp3" http://localhost:3000/file-upload
   per-file parse became genuinely CPU-heavy (decode/DSP).
 - **VBR.** The sample is variable-bitrate, so the parser must read the bitrate
   from _each_ frame header rather than assuming a constant bitrate.
+- **Frame-count convention (the ±1).** The first frame is usually a **Xing/Info**
+  VBR-header frame — a real MPEG frame, but metadata (silence), not audio. We
+  **exclude it**, so the sample reports **6089**, matching `mediainfo` and the
+  Xing header's own declared frame count. The literal physical frame count
+  (including the metadata frame) would be 6090. Files without a Xing/Info frame
+  are counted in full (nothing is excluded).
