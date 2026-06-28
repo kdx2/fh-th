@@ -99,7 +99,8 @@ Multi-stage build producing a small, non-root production image:
 
 ```bash
 npm run docker:build   # docker build -t mp3-frame-counter .
-npm run docker:run     # docker run --rm -p 3000:3000 mp3-frame-counter
+docker run --rm -p 3000:3000 mp3-frame-counter # npm run docker:run
+
 # then, against the container:
 curl -F "file=@assets/sample.mp3" http://localhost:3000/file-upload
 ```
