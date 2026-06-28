@@ -15,7 +15,9 @@
     "test:watch": "vitest",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "docker:build": "docker build -t mp3-frame-counter .",
+    "docker:run": "docker run --rm -p 3000:3000 mp3-frame-counter"
   },
   "dependencies": {
     "@fastify/multipart": "^10.0.0",

@@ -189,6 +189,23 @@ assets/sample.mp3            # provided sample (MPEG-1 L3, VBR, mediainfo: 6089 
 | `HOST`             | `0.0.0.0`            | Bind address.                 |
 | `MAX_UPLOAD_BYTES` | `104857600` (100 MB) | Max upload size before `413`. |
 
+## Docker
+
+Multi-stage build producing a small, non-root production image:
+
+```bash
+npm run docker:build   # docker build -t mp3-frame-counter .
+npm run docker:run     # docker run --rm -p 3000:3000 mp3-frame-counter
+# then, against the container:
+curl -F "file=@assets/sample.mp3" http://localhost:3000/file-upload
+```
+
+- **Multi-stage** — TypeScript is compiled in a build stage; the runtime image
+  ships only `dist/` + production `node_modules`.
+- Runs as the unprivileged **`node`** user.
+- A **`HEALTHCHECK`** polls `/health` so Docker/orchestrators can track liveness.
+- Configurable via env, e.g. `docker run -e PORT=8080 -e MAX_UPLOAD_BYTES=5242880 …`.
+
 ## Notes & trade-offs
 
 - **Why no worker threads.** Frame counting is I/O-bound, not CPU-bound — the
