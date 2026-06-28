@@ -21,12 +21,15 @@ Response:
 
 ## Getting started
 
+To run on local without containerization*:
+
 ```bash
 npm install
 npm run dev        # start with hot reload (tsx) on http://localhost:3000
 # or
 npm run build && npm start
 ```
+\* *for containerized runs, please find the Docker section below*
 
 ### Manual test uploads
 
