@@ -107,6 +107,11 @@ Expected response format:
 | `422`  | No MPEG audio frame found — file is not a valid MP3.                  |
 | `500`  | Unexpected server error.                                              |
 
+### `GET /health`
+
+Liveness/readiness probe → `200 { "status": "ok" }`. Kept out of the request logs
+and used by the container `HEALTHCHECK`.
+
 ## Testing
 
 ```bash

@@ -47,6 +47,12 @@ describe('POST /file-upload — response codes', () => {
     await app.close();
   });
 
+  it('200 — GET /health reports ok', async () => {
+    const res = await app.inject({ method: 'GET', url: '/health' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ status: 'ok' });
+  });
+
   it('200 — valid MPEG-1 Layer III frames returns the count', async () => {
     const res = await uploadFile(app, TWO_FRAMES);
     expect(res.statusCode).toBe(200);

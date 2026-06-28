@@ -2,6 +2,7 @@ import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import multipartPlugin from '@fastify/multipart';
 import { config } from '../config.js';
 import { fileUploadRoutes } from './routes/fileUpload.js';
+import { healthRoutes } from './routes/health.js';
 
 export interface BuildAppOptions {
   /** Max upload size in bytes before a 413. Defaults to {@link config.maxUploadBytes}. */
@@ -34,6 +35,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     reply.code(statusCode).send({ error: error.message });
   });
 
+  await app.register(healthRoutes);
   await app.register(fileUploadRoutes);
 
   return app;
