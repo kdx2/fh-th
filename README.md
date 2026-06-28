@@ -79,17 +79,37 @@ Expected response format:
    `Content-Type` header is present, remove it.)
 5. **Send**.
 
+## Docker
+
+Multi-stage build producing a small, non-root production image:
+
+```bash
+npm run docker:build   # docker build -t mp3-frame-counter .
+npm run docker:run     # docker run --rm -p 3000:3000 mp3-frame-counter
+# then, against the container:
+curl -F "file=@assets/sample.mp3" http://localhost:3000/file-upload
+```
+
+- **Multi-stage** — TypeScript is compiled in a build stage; the runtime image
+  ships only `dist/` + production `node_modules`.
+- Runs as the unprivileged **`node`** user.
+- A **`HEALTHCHECK`** polls `/health` so Docker/orchestrators can track liveness.
+- Configurable via env, e.g. `docker run -e PORT=8080 -e MAX_UPLOAD_BYTES=5242880 …`.
+
 ## Scripts
 
-| Script              | Description                           |
-| ------------------- | ------------------------------------- |
-| `npm run dev`       | Run in watch mode with `tsx`.         |
-| `npm run build`     | Type-check and compile to `dist/`.    |
-| `npm start`         | Run the compiled server from `dist/`. |
-| `npm test`          | Run the test suite (Vitest).          |
-| `npm run typecheck` | Type-check only (no emit).            |
-| `npm run lint`      | Lint with ESLint.                     |
-| `npm run format`    | Format with Prettier.                 |
+| Script                                | Description                                                                           |
+| ------------------------------------- | ------------------------------------------------------------------------------------- |
+| `npm run ci`                          | **Full pipeline:** format-check → lint → typecheck → test → Docker image (fail-fast). |
+| `npm run check`                       | Same gate without Docker: format-check → lint → typecheck → test.                     |
+| `npm run dev`                         | Run in watch mode with `tsx`.                                                         |
+| `npm run build`                       | Type-check and compile to `dist/`.                                                    |
+| `npm start`                           | Run the compiled server from `dist/`.                                                 |
+| `npm test`                            | Run the test suite (Vitest).                                                          |
+| `npm run typecheck`                   | Type-check only (no emit).                                                            |
+| `npm run lint`                        | Lint with ESLint.                                                                     |
+| `npm run format`                      | Format with Prettier.                                                                 |
+| `npm run docker:build` / `docker:run` | Build / run the production image.                                                     |
 
 ## API
 
@@ -188,42 +208,3 @@ assets/sample.mp3            # provided sample (MPEG-1 L3, VBR, mediainfo: 6089 
 | `PORT`             | `3000`               | HTTP port.                    |
 | `HOST`             | `0.0.0.0`            | Bind address.                 |
 | `MAX_UPLOAD_BYTES` | `104857600` (100 MB) | Max upload size before `413`. |
-
-## Docker
-
-Multi-stage build producing a small, non-root production image:
-
-```bash
-npm run docker:build   # docker build -t mp3-frame-counter .
-npm run docker:run     # docker run --rm -p 3000:3000 mp3-frame-counter
-# then, against the container:
-curl -F "file=@assets/sample.mp3" http://localhost:3000/file-upload
-```
-
-- **Multi-stage** — TypeScript is compiled in a build stage; the runtime image
-  ships only `dist/` + production `node_modules`.
-- Runs as the unprivileged **`node`** user.
-- A **`HEALTHCHECK`** polls `/health` so Docker/orchestrators can track liveness.
-- Configurable via env, e.g. `docker run -e PORT=8080 -e MAX_UPLOAD_BYTES=5242880 …`.
-
-## Notes & trade-offs
-
-- **Why no worker threads.** Frame counting is I/O-bound, not CPU-bound — the
-  parser only reads each frame's 4-byte header and skips the payload. Streaming
-  already keeps the event loop responsive (O(chunk) per `consume()`), so offloading
-  to worker threads would add copy + messaging overhead while parallelising the
-  trivial part. They'd only pay off if the per-file parse became genuinely
-  CPU-heavy (decode/DSP).
-- **Scaling for load.** The service is stateless (`buildApp()` factory, no shared
-  state), so it scales horizontally — run multiple replicas behind a load
-  balancer, or `node:cluster` across local cores. That is how an I/O-bound Node
-  service uses multiple cores; worker threads would be the answer only if the
-  per-file parse became genuinely CPU-heavy (decode/DSP).
-- **VBR.** The sample is variable-bitrate, so the parser must read the bitrate
-  from _each_ frame header rather than assuming a constant bitrate.
-- **Frame-count convention (the ±1).** The first frame is usually a **Xing/Info**
-  VBR-header frame — a real MPEG frame, but metadata (silence), not audio. We
-  **exclude it**, so the sample reports **6089**, matching `mediainfo` and the
-  Xing header's own declared frame count. The literal physical frame count
-  (including the metadata frame) would be 6090. Files without a Xing/Info frame
-  are counted in full (nothing is excluded).

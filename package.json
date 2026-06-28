@@ -16,6 +16,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test",
+    "ci": "npm run check && npm run docker:build",
     "docker:build": "docker build -t mp3-frame-counter .",
     "docker:run": "docker run --rm -p 3000:3000 mp3-frame-counter"
   },

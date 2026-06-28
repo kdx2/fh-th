@@ -139,10 +139,8 @@ export function extractId3v2TagLength(data: Buffer, offset = 0): number {
 }
 
 /**
- * True if the frame at `offset` is a Xing/Info VBR-header frame — a real MPEG
- * frame that carries VBR metadata (frame/byte counts, TOC) instead of audio. The
- * tag sits immediately after the side information, whose size depends on the
- * channel mode. `mediainfo` excludes this frame from its count, so we do too.
+ * True if the frame at `offset` is a Xing/Info VBR-header frame - an MPEG VBR
+ * metadata frame which does not contain audio.
  */
 export function isXingFrame(data: Buffer, offset: number): boolean {
   if (offset + MPEG_FRAME_HEADER_BYTES > data.length) return false;
