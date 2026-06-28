@@ -96,13 +96,15 @@ Expected response format:
 
 `multipart/form-data` with a single file field named `file`.
 
-| Status | When                                                     |
-| ------ | -------------------------------------------------------- |
-| `200`  | Parsed successfully — body `{ "frameCount": <number> }`. |
-| `400`  | No file provided in the `file` field.                    |
-| `406`  | Request was not `multipart/form-data`.                   |
-| `413`  | Upload exceeded `MAX_UPLOAD_BYTES`.                      |
-| `500`  | Unexpected error (e.g. parser not implemented).          |
+| Status | When                                                                  |
+| ------ | --------------------------------------------------------------------- |
+| `200`  | Parsed successfully — body `{ "frameCount": <number> }`.              |
+| `400`  | No file provided in the `file` field.                                 |
+| `406`  | Request was not `multipart/form-data`.                                |
+| `413`  | Upload exceeded `MAX_UPLOAD_BYTES`.                                   |
+| `415`  | A real MPEG frame, but not MPEG-1 Layer III (e.g. MPEG-2 / Layer II). |
+| `422`  | No MPEG audio frame found — file is not a valid MP3.                  |
+| `500`  | Unexpected error (e.g. parser not implemented).                       |
 
 ## Architecture
 
@@ -111,17 +113,17 @@ event loop free:
 
 ```
 client ──(multipart stream)──▶ Fastify route ──(for await chunk)──▶ Mp3FrameCounter.update()
-                                                                          │ .end()
+                                                                          │ .finalise()
                               { frameCount } ◀───────────────────────────┘
 ```
 
 - **Streaming upload** — `@fastify/multipart` exposes the file as a `Readable`.
   No temp files; bytes flow through in chunks at constant memory.
-- **Incremental parse** (`src/mp3/countStream.ts`) — each chunk is fed to a
+- **Incremental parse** (`src/processor-mp3/countStream.ts`) — each chunk is fed to a
   per-request `Mp3FrameCounter`. Because work is O(chunk) per call and the loop
   interleaves other requests between chunks, a large file never blocks the loop,
   and a fresh counter per request keeps each response tied to its own bytes.
-- **The parser** (`src/mp3/frameCounter.ts`) is a pure `update(chunk)` / `end()`
+- **The parser** (`src/processor-mp3/frameCounter.ts`) is a pure `update(chunk)` / `finalise()`
   state machine that only sees raw bytes — no HTTP, no filesystem.
 
 ### Layout
@@ -133,13 +135,13 @@ src/
   server/
     app.ts                  # buildApp(): Fastify + multipart + error handler
     routes/fileUpload.ts    # POST /file-upload
-  mp3/
+  processor-mp3/
     types.ts                # FrameParser interface
     countStream.ts          # consume a Readable -> frame count
     frameCounter.ts         # todo: the parser
 test/                       # todo: add tests
 assets/sample.mp3           # provided sample (MPEG-1 L3, VBR, mediainfo: 6089 frames)
-docs/optional-worker-offload/  # archived worker-thread design (not built) + rationale
+docs/                       # algorithm + validation plans
 ```
 
 ## Configuration
@@ -156,8 +158,8 @@ docs/optional-worker-offload/  # archived worker-thread design (not built) + rat
   parser only reads each frame's 4-byte header and skips the payload. Streaming
   already keeps the event loop responsive (O(chunk) per `update()`), so offloading
   to worker threads would add copy + messaging overhead while parallelising the
-  trivial part. An archived worker-pool design and the full rationale live in
-  [`docs/optional-worker-offload/`](docs/optional-worker-offload/README.md).
+  trivial part. They'd only pay off if the per-file parse became genuinely
+  CPU-heavy (decode/DSP).
 - **Scaling for load.** The service is stateless (`buildApp()` factory, no shared
   state), so it scales horizontally — run multiple replicas behind a load
   balancer, or `node:cluster` across local cores. That is how an I/O-bound Node
