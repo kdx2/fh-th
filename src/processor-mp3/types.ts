@@ -2,7 +2,7 @@
  * Incremental, streaming frame counter.
  *
  * Contract:
- *  - `update()` - called with each chunk of file bytes, in order. Frames may be
+ *  - `consume()` - called with each chunk of file bytes, in order. Frames may be
  *    split across chunk boundaries, so implementations must carry state between
  *    calls.
  *  - `finalise()` - called exactly once, after the last chunk. Returns the total
@@ -12,6 +12,6 @@
  * keeps it pure and easy to unit-test in isolation.
  */
 export interface FrameParser {
-  update(chunk: Buffer): void;
+  consume(chunk: Buffer): void;
   finalise(): number;
 }
