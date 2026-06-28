@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { countFramesInStream } from '../../processor-mp3/countStream.js';
+import { countFramesInStream } from '../../mp3/countFramesInStream.js';
 
 /**
  * `POST /file-upload`
@@ -47,8 +47,19 @@ export async function fileUploadRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({ error: 'Expected a file in the multipart "file" field.' });
       }
 
-      const frameCount = await countFramesInStream(upload.file);
-      return reply.send({ frameCount });
+      const tooLarge = () =>
+        reply.code(413).send({ error: 'Uploaded file exceeds the maximum allowed size.' });
+
+      try {
+        const frameCount = await countFramesInStream(upload.file);
+        // @fastify/multipart truncates (it does not throw) the file stream at the size limit
+        if (upload.file.truncated) return tooLarge();
+        return reply.send({ frameCount });
+      } catch (error) {
+        // A truncated upload may also surface as a parse error — prefer 413.
+        if (upload.file.truncated) return tooLarge();
+        throw error; // genuine 415/422/etc. → global error handler
+      }
     },
   );
 }

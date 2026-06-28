@@ -3,19 +3,28 @@ import multipartPlugin from '@fastify/multipart';
 import { config } from '../config.js';
 import { fileUploadRoutes } from './routes/fileUpload.js';
 
+export interface BuildAppOptions {
+  /** Max upload size in bytes before a 413. Defaults to {@link config.maxUploadBytes}. */
+  maxUploadBytes?: number;
+  /** Enable Fastify's logger. Defaults to true; tests pass `false` to stay quiet. */
+  logger?: boolean;
+}
+
 /**
  * Build (but don't start) the Fastify application. Returning the instance keeps
- * it easy to test with `app.inject()` and to start from `index.ts`.
+ * it easy to test with `app.inject()` and to start from `index.ts`. Options are
+ * injectable so tests can, e.g., set a tiny upload limit without touching env.
  */
-export async function buildApp(): Promise<FastifyInstance> {
-  const app = Fastify({ logger: true });
+export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
+  const { maxUploadBytes = config.maxUploadBytes, logger = true } = options;
+  const app = Fastify({ logger });
 
   await app.register(multipartPlugin, {
     limits: {
       files: 1, // exactly one MP3 per request
-      fileSize: config.maxUploadBytes, // enforce the size cap while streaming
+      // Truncate the file stream at the cap; the route detects truncation → 413.
+      fileSize: maxUploadBytes,
     },
-    throwFileSizeLimit: true, // turn an oversized upload into a 413 error
   });
 
   // Single JSON error shape for every failure, with sensible status codes.

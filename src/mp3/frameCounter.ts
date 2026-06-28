@@ -1,4 +1,3 @@
-import type { FrameParser } from './types.js';
 import { Mp3StreamParser } from './streamParser.js';
 import { MPEG_FRAME_HEADER_BYTES, computeFrameLength, decodeHeader } from './frameHeader.js';
 
@@ -10,7 +9,7 @@ import { MPEG_FRAME_HEADER_BYTES, computeFrameLength, decodeHeader } from './fra
  * confirm the next header — and carries any partial frame to the next chunk.
  * See `docs/frame-counting-algorithm.md`.
  */
-export class Mp3FrameCounter extends Mp3StreamParser implements FrameParser {
+export class Mp3FrameCounter extends Mp3StreamParser {
   public frameCount = 0;
 
   consume(chunk: Buffer): void {

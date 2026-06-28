@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer';
 
 import { describe, expect, it } from 'vitest';
 
-import { Mp3FrameCounter } from '../../src/processor-mp3/frameCounter.js';
+import { Mp3FrameCounter } from '../../src/mp3/frameCounter.js';
 
 describe('Mp3FrameCounter.finalise', () => {
   it('returns 0 when no frames have been counted', () => {

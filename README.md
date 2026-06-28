@@ -81,14 +81,15 @@ Expected response format:
 
 ## Scripts
 
-| Script           | Description                           |
-| ---------------- | ------------------------------------- |
-| `npm run dev`    | Run in watch mode with `tsx`.         |
-| `npm run build`  | Type-check and compile to `dist/`.    |
-| `npm start`      | Run the compiled server from `dist/`. |
-| `npm test`       | Run the test suite (Vitest).          |
-| `npm run lint`   | Lint with ESLint.                     |
-| `npm run format` | Format with Prettier.                 |
+| Script              | Description                           |
+| ------------------- | ------------------------------------- |
+| `npm run dev`       | Run in watch mode with `tsx`.         |
+| `npm run build`     | Type-check and compile to `dist/`.    |
+| `npm start`         | Run the compiled server from `dist/`. |
+| `npm test`          | Run the test suite (Vitest).          |
+| `npm run typecheck` | Type-check only (no emit).            |
+| `npm run lint`      | Lint with ESLint.                     |
+| `npm run format`    | Format with Prettier.                 |
 
 ## API
 
@@ -104,7 +105,35 @@ Expected response format:
 | `413`  | Upload exceeded `MAX_UPLOAD_BYTES`.                                   |
 | `415`  | A real MPEG frame, but not MPEG-1 Layer III (e.g. MPEG-2 / Layer II). |
 | `422`  | No MPEG audio frame found — file is not a valid MP3.                  |
-| `500`  | Unexpected error (e.g. parser not implemented).                       |
+| `500`  | Unexpected server error.                                              |
+
+## Testing
+
+```bash
+npm test            # run the whole suite once (Vitest)
+npm run test:watch  # watch mode
+```
+
+Two layers:
+
+- **Unit tests** (`test/mp3/`) exercise the parser in isolation with synthetic,
+  hand-built MPEG-1 Layer III frames and the real `assets/sample.mp3`: header
+  decoding, frame-length maths, ID3v2 tag skipping (including across chunk
+  boundaries), next-sync confirmation, and the streaming frame count.
+- **Endpoint tests** (`test/server/fileUpload.test.ts`) drive the real Fastify app
+  in-process via `app.inject()` (no socket/port needed) and assert **every**
+  response code the API can return:
+
+  | Code  | Scenario                                         |
+  | ----- | ------------------------------------------------ |
+  | `200` | valid MPEG-1 Layer III upload → `{ frameCount }` |
+  | `400` | multipart with no `file` field                   |
+  | `406` | request is not `multipart/form-data`             |
+  | `413` | upload exceeds the size limit                    |
+  | `415` | a real MPEG frame that isn't MPEG-1 Layer III    |
+  | `422` | bytes contain no MPEG frame                      |
+  | `404` | unknown route                                    |
+  | `500` | an unexpected error maps to a JSON 500           |
 
 ## Architecture
 
@@ -112,36 +141,39 @@ The upload is parsed **inline as it streams**, which keeps memory flat and the
 event loop free:
 
 ```
-client ──(multipart stream)──▶ Fastify route ──(for await chunk)──▶ Mp3FrameCounter.update()
+client ──(multipart stream)──▶ Fastify route ──(for await chunk)──▶ Mp3FrameCounter.consume()
                                                                           │ .finalise()
                               { frameCount } ◀───────────────────────────┘
 ```
 
 - **Streaming upload** — `@fastify/multipart` exposes the file as a `Readable`.
   No temp files; bytes flow through in chunks at constant memory.
-- **Incremental parse** (`src/processor-mp3/countStream.ts`) — each chunk is fed to a
+- **Incremental parse** (`src/mp3/countFramesInStream.ts`) — each chunk is fed to a
   per-request `Mp3FrameCounter`. Because work is O(chunk) per call and the loop
   interleaves other requests between chunks, a large file never blocks the loop,
   and a fresh counter per request keeps each response tied to its own bytes.
-- **The parser** (`src/processor-mp3/frameCounter.ts`) is a pure `update(chunk)` / `finalise()`
+- **The parser** (`src/mp3/frameCounter.ts`) is a pure `consume(chunk)` / `finalise()`
   state machine that only sees raw bytes — no HTTP, no filesystem.
 
 ### Layout
 
 ```
 src/
-  config.ts                 # env-driven config (port, size limit)
-  index.ts                  # bootstrap + graceful shutdown
+  config.ts                  # env-driven config (port, host, size limit)
+  index.ts                   # bootstrap + graceful shutdown
   server/
-    app.ts                  # buildApp(): Fastify + multipart + error handler
-    routes/fileUpload.ts    # POST /file-upload
-  processor-mp3/
-    types.ts                # FrameParser interface
-    countStream.ts          # consume a Readable -> frame count
-    frameCounter.ts         # todo: the parser
-test/                       # todo: add tests
-assets/sample.mp3           # provided sample (MPEG-1 L3, VBR, mediainfo: 6089 frames)
-docs/                       # algorithm + validation plans
+    app.ts                   # buildApp(): Fastify + multipart + error handler
+    routes/fileUpload.ts     # POST /file-upload
+  mp3/
+    countFramesInStream.ts   # consume a Readable -> frame count (entry point)
+    streamParser.ts          # Mp3StreamParser: carry + leading ID3v2 skip
+    frameCounter.ts          # Mp3FrameCounter: count frames
+    formatValidator.ts       # Mp3FormatValidator: reject non-MPEG-1 Layer III
+    frameHeader.ts           # header decode, frame length, ID3v2 tag, format checks
+    errors.ts                # HttpError + 415/422
+test/mp3/                    # parser unit tests (mirror src/mp3)
+test/server/                 # endpoint integration tests (app.inject)
+assets/sample.mp3            # provided sample (MPEG-1 L3, VBR, mediainfo: 6089 frames)
 ```
 
 ## Configuration
@@ -156,7 +188,7 @@ docs/                       # algorithm + validation plans
 
 - **Why no worker threads.** Frame counting is I/O-bound, not CPU-bound — the
   parser only reads each frame's 4-byte header and skips the payload. Streaming
-  already keeps the event loop responsive (O(chunk) per `update()`), so offloading
+  already keeps the event loop responsive (O(chunk) per `consume()`), so offloading
   to worker threads would add copy + messaging overhead while parallelising the
   trivial part. They'd only pay off if the per-file parse became genuinely
   CPU-heavy (decode/DSP).

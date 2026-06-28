@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
-import { Mp3FormatValidator } from '../src/processor-mp3/formatValidator.js';
-import { InvalidMp3Error, UnsupportedFormatError } from '../src/processor-mp3/errors.js';
+import { Mp3FormatValidator } from '../../src/mp3/formatValidator.js';
+import { InvalidMp3Error, UnsupportedFormatError } from '../../src/mp3/errors.js';
 
 /** 4-byte header: 64 kbps, 44.1 kHz, no padding → 208-byte frames. */
 function header(version: number, layer: number): Buffer {
@@ -87,7 +87,7 @@ describe('Mp3FormatValidator', () => {
   });
 
   it('validates the real sample file (assets/sample.mp3)', async () => {
-    const file = await readFile(new URL('../assets/sample.mp3', import.meta.url));
+    const file = await readFile(new URL('../../assets/sample.mp3', import.meta.url));
     const v = new Mp3FormatValidator();
     for (let i = 0; i < file.length; i += 65536) {
       v.consume(file.subarray(i, i + 65536));

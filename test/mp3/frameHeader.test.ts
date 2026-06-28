@@ -5,8 +5,8 @@ import {
   decodeHeader,
   extractId3v2TagLength,
   isSupported,
-} from '../src/processor-mp3/frameHeader.js';
-import { UnsupportedFormatError } from '../src/processor-mp3/errors.js';
+} from '../../src/mp3/frameHeader.js';
+import { UnsupportedFormatError } from '../../src/mp3/errors.js';
 
 /**
  * Build a 4-byte MPEG audio header from its fields.
