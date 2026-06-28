@@ -21,7 +21,7 @@ Response:
 
 ## Getting started
 
-To run on local without containerization*:
+To run on local without containerization\*:
 
 ```bash
 npm install
@@ -29,7 +29,8 @@ npm run dev        # start with hot reload (tsx) on http://localhost:3000
 # or
 npm run build && npm start
 ```
-\* *for containerized runs, please find the Docker section below*
+
+\* _for containerized runs, please find the Docker section below_
 
 ### Manual test uploads
 
@@ -37,11 +38,12 @@ The request must be a `multipart/form-data` POST with a single file part named
 `file`. Only one request header matters:
 
 - **`Content-Type: multipart/form-data; boundary=…`** — required. The `boundary`
-  is what delimits the file part; without it the request is rejected with `406` (Not Acceptable).
+  delimits the file part; a **missing boundary** is rejected with `400` (Bad Request),
+  and a **non-multipart** body with `406`/`415`.
 - `Content-Length` (or chunked transfer).
 
 Preferably, rely on the client to automatically **generate the header** - `Content-Type: multipart/form-data` - and **boundary**
-as its manual calculation or lack of boundary may lead to an error like 406.
+as its manual calculation or lack of boundary may lead to an error like 400.
 
 #### Using curl
 
@@ -120,15 +122,15 @@ curl -F "file=@assets/sample.mp3" http://localhost:3000/file-upload
 
 `multipart/form-data` with a single file field named `file`.
 
-| Status | When                                                                  |
-| ------ | --------------------------------------------------------------------- |
-| `200`  | Parsed successfully — body `{ "frameCount": <number> }`.              |
-| `400`  | No file provided in the `file` field.                                 |
-| `406`  | Request was not `multipart/form-data`.                                |
-| `413`  | Upload exceeded `MAX_UPLOAD_BYTES`.                                   |
-| `415`  | A real MPEG frame, but not MPEG-1 Layer III (e.g. MPEG-2 / Layer II). |
-| `422`  | No MPEG audio frame found — file is not a valid MP3.                  |
-| `500`  | Unexpected server error.                                              |
+| Status | When                                                                                 |
+| ------ | ------------------------------------------------------------------------------------ |
+| `200`  | Parsed successfully — body `{ "frameCount": <number> }`.                             |
+| `400`  | No `file` field, or a malformed `multipart/form-data` body (e.g. missing boundary).  |
+| `406`  | Body was parsed but is not `multipart/form-data` (e.g. JSON).                        |
+| `413`  | Upload exceeded `MAX_UPLOAD_BYTES`.                                                  |
+| `415`  | Unsupported media — a non-multipart raw body, or an MP3 that isn't MPEG-1 Layer III. |
+| `422`  | No MPEG audio frame found — file is not a valid MP3.                                 |
+| `500`  | Unexpected server error.                                                             |
 
 ### `GET /health`
 

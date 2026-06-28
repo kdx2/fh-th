@@ -1,6 +1,16 @@
 import type { FastifyInstance } from 'fastify';
 import { countFramesInStream } from '../../mp3/countFramesInStream.js';
 
+/** Errors that already carry an HTTP status (e.g. @fastify/multipart's 406). */
+function hasStatusCode(error: unknown): error is { statusCode: number } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'statusCode' in error &&
+    typeof (error as { statusCode: unknown }).statusCode === 'number'
+  );
+}
+
 /**
  * `POST /file-upload`
  *
@@ -42,7 +52,17 @@ export async function fileUploadRoutes(app: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       // Streaming API: `upload.file` is a Readable; no temp file is created.
-      const upload = await request.file();
+      let upload;
+      try {
+        upload = await request.file();
+      } catch (error) {
+        // Non-multipart content types throw with a statusCode (e.g. 406); a
+        // malformed multipart body (e.g. a missing boundary) throws a busboy
+        // error with none — that's the client's fault, so return 400, not 500.
+        if (hasStatusCode(error)) throw error;
+        return reply.code(400).send({ error: 'Malformed multipart/form-data request.' });
+      }
+
       if (!upload) {
         return reply.code(400).send({ error: 'Expected a file in the multipart "file" field.' });
       }

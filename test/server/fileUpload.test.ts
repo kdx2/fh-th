@@ -82,6 +82,27 @@ describe('POST /file-upload — response codes', () => {
     expect(res.statusCode).toBe(406);
   });
 
+  it('400 — multipart/form-data with no boundary (malformed)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/file-upload',
+      headers: { 'content-type': 'multipart/form-data' }, // boundary missing
+      payload: Buffer.from('not really multipart'),
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBeTypeOf('string');
+  });
+
+  it('415 — a non-multipart raw body (no registered parser)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/file-upload',
+      headers: { 'content-type': 'application/octet-stream' },
+      payload: Buffer.from([0xff, 0xfb, 0x50, 0x00]),
+    });
+    expect(res.statusCode).toBe(415);
+  });
+
   it('413 — upload exceeds the configured size limit', async () => {
     const smallApp = await buildApp({ logger: false, maxUploadBytes: 100 });
     try {
