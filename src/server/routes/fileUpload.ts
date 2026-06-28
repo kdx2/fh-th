@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { countFramesInStream } from '../../processor-mp3/countStream.js';
 
 /**
  * `POST /file-upload`
@@ -8,8 +9,8 @@ import type { FastifyInstance } from 'fastify';
  *
  *   { "frameCount": <number> }
  *
- * The upload is consumed as a stream and handed to the worker pool for parsing,
- * so the file is never buffered in memory or written to disk.
+ * The upload is consumed as a stream and parsed incrementally, so the file is
+ * never buffered in memory or written to disk.
  */
 export async function fileUploadRoutes(app: FastifyInstance): Promise<void> {
   app.post(
@@ -46,7 +47,7 @@ export async function fileUploadRoutes(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({ error: 'Expected a file in the multipart "file" field.' });
       }
 
-      const frameCount = await app.parserPool.run(upload.file);
+      const frameCount = await countFramesInStream(upload.file);
       return reply.send({ frameCount });
     },
   );

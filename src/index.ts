@@ -3,7 +3,7 @@ import { config } from './config.js';
 
 const app = await buildApp();
 
-// Stop cleanly on Ctrl-C / container shutdown so workers are terminated.
+// Stop cleanly on Ctrl-C / container shutdown so in-flight requests can drain.
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     app.log.info(`received ${signal}, shutting down`);
